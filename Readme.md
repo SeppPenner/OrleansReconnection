@@ -1,0 +1,1 @@
+An example project for the issue https://github.com/dotnet/orleans/issues/7436.
