@@ -12,3 +12,5 @@ public Task CheckClusterConnection()
     return Task.CompletedTask;
 }
 ```
+
+All changes made to fix the issue can be found under https://github.com/SeppPenner/OrleansReconnection/commit/f1cde7ba230b4ed7692b8d0024e1aaef86b4e97b. (Don't mind the removed calls to `.ConfigureAwait(false)`).
