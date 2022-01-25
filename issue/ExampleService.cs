@@ -45,7 +45,7 @@ public class ExampleService : BackgroundService
 
         if (Program.InCompose)
         {
-            var addresses = await Dns.GetHostAddressesAsync("example.silohost", cancellationToken).ConfigureAwait(false);
+            var addresses = await Dns.GetHostAddressesAsync("example.silohost", cancellationToken);
             gateways = addresses.Select(a => new IPEndPoint(a, 30000)).ToArray();
         }
 
@@ -68,7 +68,7 @@ public class ExampleService : BackgroundService
 
         this.logger.Information("Connecting to Orleans Silo");
 
-        var isConnected = await this.ConnectOrleansClient(cancellationToken).ConfigureAwait(false);
+        var isConnected = await this.ConnectOrleansClient(cancellationToken);
 
         if (!isConnected)
         {
@@ -77,7 +77,7 @@ public class ExampleService : BackgroundService
         }
 
         this.logger.Information("Orleans connected");
-        await base.StartAsync(cancellationToken).ConfigureAwait(false);
+        await base.StartAsync(cancellationToken);
     }
 
     /// <inheritdoc cref="BackgroundService"/>
@@ -90,7 +90,7 @@ public class ExampleService : BackgroundService
             {
                 if (!this.OrleansClient.IsInitialized)
                 {
-                    await this.OrleansClient.Close().ConfigureAwait(false);
+                    await this.OrleansClient.Close();
                     this.reconnectOrleansClient = true;
                 }
             }
@@ -105,9 +105,11 @@ public class ExampleService : BackgroundService
                 // Cyclic check whether the grain calls are ok or not (GrainTypeResolver error detection).
                 try
                 {
-                    var exampleGrain =
-                        this.OrleansClient.GetGrain<IExampleGrain>("Grain1");
-                    _ = await exampleGrain.GetAllData().ConfigureAwait(false);
+                    var exampleGrain = this.OrleansClient.GetGrain<IExampleGrain>("Grain1");
+                    var dataPointsTask = exampleGrain.GetAllData();
+                    var delay = Task.Delay(5000, cancellationToken);
+                    var result = await Task.WhenAny(dataPointsTask, delay);
+                    this.reconnectOrleansClient = result == delay || result.IsFaulted;
                 }
                 catch (Exception ex)
                 {
@@ -119,11 +121,11 @@ public class ExampleService : BackgroundService
             // Reconnect if an error was detected.
             if (this.reconnectOrleansClient)
             {
-                var isConnected = await this.ConnectOrleansClient(cancellationToken).ConfigureAwait(false);
+                var isConnected = await this.ConnectOrleansClient(cancellationToken);
 
                 if (isConnected)
                 {
-                    this.logger.Error("Reconnect to silo successful");
+                    this.logger.Information("Reconnect to silo successful");
                 }
                 else
                 {
@@ -131,8 +133,9 @@ public class ExampleService : BackgroundService
                 }
             }
 
+            // Run the heartbeat and log some memory information.
             this.LogMemoryInformation();
-            await Task.Delay(10000, cancellationToken).ConfigureAwait(false);
+            await Task.Delay(10000, cancellationToken);
         }
     }
 
@@ -146,7 +149,7 @@ public class ExampleService : BackgroundService
 
         // Unfortunately, this timeout check is required.
         var delay = Task.Delay(6000, cancellationToken);
-        var result = await Task.WhenAny(connectTask, delay).ConfigureAwait(false);
+        var result = await Task.WhenAny(connectTask, delay);
 
         return result != delay && !result.IsFaulted;
     }
